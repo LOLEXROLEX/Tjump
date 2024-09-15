@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PLAY</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #001f3f; /* Night sky */
+      overflow-y: auto; /* Allow scrolling */
+    }
+
+    h1 {
+      color: #f39c12;
+      text-align: center;
+      font-size: 3em;
+      animation: bounce 1s infinite;
+      margin-top: 20px;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-20px);
+      }
+      60% {
+        transform: translateY(-10px);
+      }
+    }
+
+    canvas {
+      display: block;
+      background: linear-gradient(to top, #001f3f, #87CEEB); /* sky background */
+      margin: 0 auto;
+      border: 2px solid #f39c12;
+    }
+
+    #message {
+      color: white;
+      text-align: center;
+      font-size: 1.5em;
+      margin-top: 10px;
+      transition: color 0.3s;
+    }
+
+    #restart-button {
+      display: none;
+      font-size: 20px;
+      padding: 10px 20px;
+      background-color: #f39c12;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      margin: 20px auto;
+      display: block;
+      text-align: center;
+    }
+
+    #restart-button:hover {
+      background-color: #e67e22;
+    }
+
+    #contract-info {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #contract-address {
+      font-size: 1.5em;
+      color: #f39c12;
+      cursor: pointer;
+      display: inline-block;
+      transition: color 0.3s, text-shadow 0.3s;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+
+    #contract-address:hover {
+      color: #e67e22;
+    }
+
+    #confirmation-message {
+      display: none;
+      text-align: center;
+      margin-top: 10px;
+      font-size: 1.2em;
+      color: limegreen;
+    }
+
+    .scroll-container {
+      font-size: 28px;
+      font-weight: bold;
+      color: limegreen;
+      white-space: nowrap;
+      overflow: hidden;
+      position: relative;
+      font-family: 'Arial Black', sans-serif;
+      text-shadow: 2px 2px 5px black;
+      margin-top: 20px;
+    }
+
+    marquee {
+      display: block;
+    }
+
+    .scroll-text {
+      display: inline-block;
+      font-size: 28px;
+      font-weight: bold;
+      font-family: 'Arial Black', sans-serif;
+      text-shadow: 2px 2px 5px black;
+      color: red; /* Initial color */
+      animation: color-change 2s linear infinite; /* Color change animation */
+      margin: 0 10px; /* Space between image and text */
+    }
+
+    @keyframes color-change {
+      0% {
+        color: red;
+      }
+      50% {
+        color: blue;
+      }
+      100% {
+        color: red;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>PLAY</h1>
+  <canvas id="gameCanvas" width="400" height="300"></canvas>
+  <div id="message">Click faster to jump higher! Clicks: 0</div>
+  <button id="restart-button">Start Again!</button>
+
+  <!-- Contract Address Info -->
+  <div id="contract-info">
+    <div id="contract-address" onclick="copyToClipboard()">CA: 0x1234567890abcdef1234567890abcdef12345678</div>
+    <div id="confirmation-message">Copied! &#10004;</div>
+  </div>
+
+  <!-- Scrolling Marquee -->
+  <div class="scroll-container">
+    <marquee behavior="scroll" direction="left" scrollamount="10" loop="infinite">
+      <img src="https://i.postimg.cc/rp65JCZM/tramp-removebg-preview.png" alt="Trampoline" style="height: 50px; vertical-align: middle;">
+      <span class="scroll-text">$TJUMP</span>
+      <img src="https://i.postimg.cc/rp65JCZM/tramp-removebg-preview.png" alt="Trampoline" style="height: 50px; vertical-align: middle;">
+      <span class="scroll-text">$TJUMP</span>
+      <img src="https://i.postimg.cc/rp65JCZM/tramp-removebg-preview.png" alt="Trampoline" style="height: 50px; vertical-align: middle;">
+      <span class="scroll-text">$TJUMP</span>
+      <!-- Repetă pentru efect continuu -->
+    </marquee>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Load Trump and trampoline images
+    const trumpImage = new Image();
+    trumpImage.src = 'https://i.postimg.cc/bJtf1P5m/trump.png'; // Trump image
+
+    const trampolineImage = new Image();
+    trampolineImage.src = 'https://i.postimg.cc/rp65JCZM/tramp-removebg-preview.png'; // Trampoline image
+
+    const starsMoonImage = new Image();
+    starsMoonImage.src = 'https://i.postimg.cc/25DrsZhF/stars-moon-night-Favim-com-7020419.gif'; // Moon and stars background image
+
+    let trumpX, trumpY, trampolineX, trampolineY;
+    let velocity = 0;
+    let gravity = 0.5; // Controls how quickly Trump falls back down
+    let baseJumpPower = -8; // Starting jump power (small jumps)
+    let jumpIncrease = -0.25; // Jump power increases by this amount each click
+    let maxJumpPower = -20; // Maximum jump power for the final jumps
+    let currentJumpPower = baseJumpPower; // Tracks current jump power
+    let score = 0;
+    let isGameOver = false;
+    let clicks = 0;
+    let maxHeight = 50;  // The height at which the background with moon and stars appears
+    let moonReached = false;
+
+    function initializePositions() {
+      trumpX = canvas.width / 2 - 25;
+      trampolineX = canvas.width / 2 - 50;
+      trampolineY = canvas.height - 60; // Adjust trampoline height for smaller canvas
+      trumpY = trampolineY - 50;  // Trump starts on the trampoline
+    }
+
+    // Draw Trump character, trampoline, and stars background if needed
+    function drawTrumpAndTrampoline() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // If the player reaches the height threshold, show the background with moon and stars
+      if (moonReached || trumpY <= maxHeight) {
+        ctx.drawImage(starsMoonImage, 0, 0, canvas.width, canvas.height); // Draw moon and stars background
+      }
+
+      ctx.drawImage(trampolineImage, trampolineX, trampolineY, 100, 20);
+      ctx.drawImage(trumpImage, trumpX, trumpY, 50, 50);
+    }
+
+    // Update Trump's position
+    function update() {
+      if (!isGameOver) {
+        velocity += gravity;
+        trumpY += velocity;
+
+        // If Trump hits the trampoline, reset velocity
+        if (trumpY >= trampolineY - 50) {
+          trumpY = trampolineY - 50;
+          velocity = 0; // Reset velocity on trampoline
+        }
+
+        // If Trump hits the moon, display congratulations and restart button
+        if (clicks >= 30 && trumpY <= maxHeight) {
+          isGameOver = true;
+          moonReached = true; // Mark that the moon and stars are reached
+          document.getElementById('message').textContent = "Congratulations! You reached the moon!";
+          document.getElementById('restart-button').style.display = "block";
+        }
+
+        drawTrumpAndTrampoline();
+        requestAnimationFrame(update);
+      }
+    }
+
+    // Change message color based on the number of clicks
+    function updateMessage() {
+      const messageElement = document.getElementById('message');
+      messageElement.textContent = `Clicks: ${clicks} - Keep Tjumping!`;
+
+      // Change color based on click count
+      if (clicks >= 20) {
+        messageElement.style.color = 'red';
+      } else if (clicks >= 10) {
+        messageElement.style.color = 'orange';
+      } else {
+        messageElement.style.color = 'white';
+      }
+    }
+
+    // Jump function (triggered by clicks)
+    function jump() {
+      if (!isGameOver) {
+        if (trumpY >= trampolineY - 50) {
+          // Apply the current jump power and then increase the jump power for the next jump
+          velocity = currentJumpPower;
+          clicks++;
+          
+          // Increase jump power gradually, but cap it at maxJumpPower
+          currentJumpPower = Math.max(currentJumpPower + jumpIncrease, maxJumpPower);
+        }
+
+        score++;
+        updateMessage(); // Update message and color based on click count
+      }
+    }
+
+    // Reset game function
+    function resetGame() {
+      initializePositions();
+      velocity = 0;
+      score = 0;
+      clicks = 0;
+      currentJumpPower = baseJumpPower; // Reset jump power
+      isGameOver = false;
+      moonReached = false; // Reset moonReached
+      document.getElementById('message').textContent = "Click faster to jump higher! Clicks: 0";
+      document.getElementById('message').style.color = 'white';
+      document.getElementById('restart-button').style.display = "none";
+      update();
+    }
+
+    // Copy address to clipboard function
+    function copyToClipboard() {
+      const address = document.getElementById('contract-address').textContent;
+      navigator.clipboard.writeText(address).then(() => {
+        const confirmationMessage = document.getElementById('confirmation-message');
+        confirmationMessage.style.display = 'block';
+        setTimeout(() => {
+          confirmationMessage.style.display = 'none';
+        }, 2000); // Hide after 2 seconds
+      });
+    }
+
+    // Start game loop
+    initializePositions();
+    update();
+
+    // Add click event listener for jumps
+    window.addEventListener('click', jump);
+
+    // Restart game when the restart button is clicked
+    document.getElementById('restart-button').addEventListener('click', resetGame);
+  </script>
+
+</body>
+</html>
